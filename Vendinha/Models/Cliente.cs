@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Vendinha.Validations;
 
 namespace Vendinha.Models
 {
@@ -12,6 +13,7 @@ namespace Vendinha.Models
 
         private string cpf;
         [Required]
+        [Cpf]
         public string Cpf
         {
             get { return this.cpf; }
