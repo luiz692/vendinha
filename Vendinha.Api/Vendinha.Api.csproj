@@ -10,4 +10,8 @@
     <ProjectReference Include="..\Vendinha\Vendinha.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\database\schema.sql" Link="schema.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
