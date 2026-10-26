@@ -43,6 +43,8 @@ namespace Vendinha.Models
             }
         }
 
+        public decimal TotalDivida { get; set; }
+
         public int Idade
         {
             get

@@ -14,14 +14,28 @@ namespace Vendinha.Services
             this.database = database;
         }
 
-        public List<Cliente> Consultar()
+        public List<Cliente> Listar(int pagina, string? busca)
         {
+            if (pagina < 1)
+            {
+                pagina = 1;
+            }
+
             var clientes = new List<Cliente>();
 
             using (var conexao = database.AbrirConexao())
             using (var comando = conexao.CreateCommand())
             {
-                comando.CommandText = "SELECT id, nome, cpf, data_nascimento, email FROM clientes ORDER BY nome";
+                comando.CommandText = @"SELECT c.id, c.nome, c.cpf, c.data_nascimento, c.email,
+                                               COALESCE(SUM(CASE WHEN d.paga = 0 THEN d.valor ELSE 0 END), 0) AS total_divida
+                                        FROM clientes c
+                                        LEFT JOIN dividas d ON d.cliente_id = c.id
+                                        WHERE c.nome LIKE @busca
+                                        GROUP BY c.id
+                                        ORDER BY total_divida DESC, c.nome
+                                        LIMIT 10 OFFSET @offset";
+                comando.Parameters.AddWithValue("@busca", "%" + busca?.Trim() + "%");
+                comando.Parameters.AddWithValue("@offset", (pagina - 1) * 10);
 
                 using (var leitor = comando.ExecuteReader())
                 {
@@ -144,7 +158,7 @@ namespace Vendinha.Services
 
         private Cliente LerCliente(SqliteDataReader leitor)
         {
-            return new Cliente
+            var cliente = new Cliente
             {
                 Id = leitor.GetInt32(0),
                 Nome = leitor.GetString(1),
@@ -152,6 +166,13 @@ namespace Vendinha.Services
                 DataNascimento = leitor.GetDateTime(3),
                 Email = leitor.IsDBNull(4) ? null : leitor.GetString(4)
             };
+
+            if (leitor.FieldCount > 5)
+            {
+                cliente.TotalDivida = leitor.GetDecimal(5);
+            }
+
+            return cliente;
         }
     }
 }
