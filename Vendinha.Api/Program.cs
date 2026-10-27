@@ -22,7 +22,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/", () => "Vendinha API");
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 app.MapClienteEndpoints();
 app.MapDividaEndpoints();
 
