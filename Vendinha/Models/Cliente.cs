@@ -7,12 +7,12 @@ namespace Vendinha.Models
     {
         public int Id { get; set; }
 
-        [Required]
-        [StringLength(100, MinimumLength = 3)]
+        [Required(ErrorMessage = "O nome é obrigatório")]
+        [StringLength(100, MinimumLength = 3, ErrorMessage = "O nome precisa ter entre 3 e 100 caracteres")]
         public string Nome { get; set; }
 
         private string cpf;
-        [Required]
+        [Required(ErrorMessage = "O CPF é obrigatório")]
         [Cpf]
         public string Cpf
         {
@@ -26,7 +26,7 @@ namespace Vendinha.Models
         public DateTime DataNascimento { get; set; }
 
         private string? email;
-        [EmailAddress]
+        [EmailAddress(ErrorMessage = "E-mail inválido")]
         public string? Email
         {
             get { return this.email; }

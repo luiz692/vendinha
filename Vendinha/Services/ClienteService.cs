@@ -7,6 +7,11 @@ namespace Vendinha.Services
 {
     public class ClienteService
     {
+        private const string SelectCliente = @"SELECT c.id, c.nome, c.cpf, c.data_nascimento, c.email,
+                                                      COALESCE(SUM(CASE WHEN d.paga = 0 THEN d.valor ELSE 0 END), 0) AS total_divida
+                                               FROM clientes c
+                                               LEFT JOIN dividas d ON d.cliente_id = c.id";
+
         private readonly Database database;
 
         public ClienteService(Database database)
@@ -26,10 +31,7 @@ namespace Vendinha.Services
             using (var conexao = database.AbrirConexao())
             using (var comando = conexao.CreateCommand())
             {
-                comando.CommandText = @"SELECT c.id, c.nome, c.cpf, c.data_nascimento, c.email,
-                                               COALESCE(SUM(CASE WHEN d.paga = 0 THEN d.valor ELSE 0 END), 0) AS total_divida
-                                        FROM clientes c
-                                        LEFT JOIN dividas d ON d.cliente_id = c.id
+                comando.CommandText = SelectCliente + @"
                                         WHERE c.nome LIKE @busca
                                         GROUP BY c.id
                                         ORDER BY total_divida DESC, c.nome
@@ -54,7 +56,9 @@ namespace Vendinha.Services
             using (var conexao = database.AbrirConexao())
             using (var comando = conexao.CreateCommand())
             {
-                comando.CommandText = "SELECT id, nome, cpf, data_nascimento, email FROM clientes WHERE id = @id";
+                comando.CommandText = SelectCliente + @"
+                                        WHERE c.id = @id
+                                        GROUP BY c.id";
                 comando.Parameters.AddWithValue("@id", id);
 
                 using (var leitor = comando.ExecuteReader())
@@ -69,16 +73,18 @@ namespace Vendinha.Services
             return null;
         }
 
-        public bool Criar(Cliente cliente)
+        public List<string> Criar(Cliente cliente)
         {
-            if (!Validar(cliente))
+            var erros = Validar(cliente);
+            if (erros.Count > 0)
             {
-                return false;
+                return erros;
             }
 
             if (CpfExiste(cliente.Cpf, 0))
             {
-                return false;
+                erros.Add("Já existe um cliente cadastrado com esse CPF");
+                return erros;
             }
 
             using (var conexao = database.AbrirConexao())
@@ -91,19 +97,21 @@ namespace Vendinha.Services
                 cliente.Id = Convert.ToInt32(comando.ExecuteScalar());
             }
 
-            return true;
+            return erros;
         }
 
-        public bool Atualizar(Cliente cliente)
+        public List<string> Atualizar(Cliente cliente)
         {
-            if (!Validar(cliente))
+            var erros = Validar(cliente);
+            if (erros.Count > 0)
             {
-                return false;
+                return erros;
             }
 
             if (CpfExiste(cliente.Cpf, cliente.Id))
             {
-                return false;
+                erros.Add("Já existe outro cliente cadastrado com esse CPF");
+                return erros;
             }
 
             using (var conexao = database.AbrirConexao())
@@ -114,8 +122,10 @@ namespace Vendinha.Services
                                         WHERE id = @id";
                 PreencherParametros(comando, cliente);
                 comando.Parameters.AddWithValue("@id", cliente.Id);
-                return comando.ExecuteNonQuery() > 0;
+                comando.ExecuteNonQuery();
             }
+
+            return erros;
         }
 
         public bool Excluir(int id)
@@ -141,11 +151,28 @@ namespace Vendinha.Services
             }
         }
 
-        public bool Validar(Cliente cliente)
+        public List<string> Validar(Cliente cliente)
         {
             var context = new ValidationContext(cliente);
-            var erros = new List<ValidationResult>();
-            return Validator.TryValidateObject(cliente, context, erros, true);
+            var resultados = new List<ValidationResult>();
+            Validator.TryValidateObject(cliente, context, resultados, true);
+
+            var erros = new List<string>();
+            foreach (var resultado in resultados)
+            {
+                erros.Add(resultado.ErrorMessage ?? "Dado inválido");
+            }
+
+            if (cliente.DataNascimento == default)
+            {
+                erros.Add("A data de nascimento é obrigatória");
+            }
+            else if (cliente.DataNascimento > DateTime.Today)
+            {
+                erros.Add("A data de nascimento não pode ser no futuro");
+            }
+
+            return erros;
         }
 
         private void PreencherParametros(SqliteCommand comando, Cliente cliente)
@@ -158,21 +185,15 @@ namespace Vendinha.Services
 
         private Cliente LerCliente(SqliteDataReader leitor)
         {
-            var cliente = new Cliente
+            return new Cliente
             {
                 Id = leitor.GetInt32(0),
                 Nome = leitor.GetString(1),
                 Cpf = leitor.GetString(2),
                 DataNascimento = leitor.GetDateTime(3),
-                Email = leitor.IsDBNull(4) ? null : leitor.GetString(4)
+                Email = leitor.IsDBNull(4) ? null : leitor.GetString(4),
+                TotalDivida = leitor.GetDecimal(5)
             };
-
-            if (leitor.FieldCount > 5)
-            {
-                cliente.TotalDivida = leitor.GetDecimal(5);
-            }
-
-            return cliente;
         }
     }
 }
