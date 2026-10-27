@@ -9,6 +9,7 @@ var database = new Database(connectionString);
 database.CriarTabelas(Path.Combine(AppContext.BaseDirectory, "schema.sql"));
 builder.Services.AddSingleton(database);
 builder.Services.AddScoped<ClienteService>();
+builder.Services.AddScoped<DividaService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -23,5 +24,6 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/", () => "Vendinha API");
 app.MapClienteEndpoints();
+app.MapDividaEndpoints();
 
 app.Run();
